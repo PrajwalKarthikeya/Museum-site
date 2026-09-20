@@ -1,0 +1,2386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>THE DIGITAL MUSEUM OF HUMANITY — An archive of objects that should not exist yet.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@300;400;500&family=JetBrains+Mono:wght@200;300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --ink: #f4ecd8;
+    --ink-soft: rgba(244, 236, 216, 0.72);
+    --ink-faint: rgba(244, 236, 216, 0.42);
+    --ink-ghost: rgba(244, 236, 216, 0.18);
+    --rule: rgba(244, 236, 216, 0.12);
+    --serif: 'Cinzel', 'Cormorant Garamond', serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #02020a;
+    color: var(--ink);
+    font-family: var(--mono);
+    overflow: hidden;
+    cursor: default;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  #canvas {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    z-index: 1;
+  }
+
+  /* === HUD === */
+  #hud {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .hud-bar {
+    position: absolute;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 28px 44px;
+    font-size: 10.5px;
+    letter-spacing: 0.32em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+  .hud-bar.top { top: 0; left: 0; right: 0; }
+  .hud-bar.bottom { bottom: 0; left: 0; right: 0; }
+
+  .seal {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .seal .dot {
+    width: 6px; height: 6px;
+    background: #d8b46a;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #d8b46a;
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* === Exhibit info card === */
+  #exhibit {
+    position: absolute;
+    left: 44px;
+    bottom: 96px;
+    max-width: 560px;
+    z-index: 11;
+    transition: opacity 0.7s ease, transform 0.7s ease;
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  #exhibit.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #exhibit .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.42em;
+    color: var(--ink-faint);
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  #exhibit .eyebrow .line {
+    height: 1px; width: 32px; background: var(--ink-ghost);
+  }
+
+  #exhibit h1 {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: clamp(28px, 4.2vw, 52px);
+    line-height: 1.05;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    margin-bottom: 22px;
+    text-shadow: 0 2px 30px rgba(0,0,0,0.6);
+  }
+
+  #exhibit .meta {
+    font-size: 10.5px;
+    letter-spacing: 0.22em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    display: flex; flex-wrap: wrap; gap: 22px;
+  }
+  #exhibit .meta span strong {
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+
+  #exhibit p {
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: var(--ink-soft);
+    font-weight: 300;
+    max-width: 520px;
+    margin-bottom: 14px;
+  }
+
+  #exhibit .notation {
+    margin-top: 22px;
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    color: var(--ink-ghost);
+    text-transform: uppercase;
+    border-top: 1px solid var(--rule);
+    padding-top: 14px;
+    max-width: 520px;
+  }
+
+  /* === Navigation === */
+  #nav {
+    position: absolute;
+    right: 44px;
+    bottom: 96px;
+    display: flex; flex-direction: column;
+    align-items: flex-end;
+    gap: 18px;
+    z-index: 11;
+  }
+
+  .nav-counter {
+    font-size: 10.5px;
+    letter-spacing: 0.32em;
+    color: var(--ink-faint);
+    text-align: right;
+  }
+  .nav-counter .now {
+    color: var(--ink);
+    font-size: 22px;
+    letter-spacing: 0.1em;
+    font-family: var(--serif);
+    font-weight: 300;
+    display: inline-block;
+    margin-right: 4px;
+  }
+
+  .nav-buttons {
+    display: flex; gap: 10px;
+    pointer-events: auto;
+  }
+  .nav-buttons button {
+    width: 46px; height: 46px;
+    background: transparent;
+    border: 1px solid var(--ink-ghost);
+    color: var(--ink-soft);
+    font-family: var(--serif);
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    backdrop-filter: blur(4px);
+    background: rgba(0,0,0,0.18);
+  }
+  .nav-buttons button:hover:not(:disabled) {
+    border-color: var(--ink-faint);
+    color: var(--ink);
+    background: rgba(255,255,255,0.05);
+  }
+  .nav-buttons button:disabled {
+    opacity: 0.25; cursor: not-allowed;
+  }
+
+  .nav-rail {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 6px;
+    align-items: flex-end;
+  }
+  .nav-rail .tick {
+    width: 18px; height: 1px;
+    background: var(--ink-ghost);
+    transition: all 0.4s ease;
+  }
+  .nav-rail .tick.active {
+    width: 38px;
+    background: #d8b46a;
+    box-shadow: 0 0 8px #d8b46a;
+  }
+
+  /* === Corner labels === */
+  .corner {
+    position: absolute;
+    font-size: 9.5px;
+    letter-spacing: 0.36em;
+    color: var(--ink-ghost);
+    text-transform: uppercase;
+    z-index: 10;
+  }
+  .corner.tl { top: 28px; left: 44px; }
+  .corner.tr { top: 28px; right: 44px; text-align: right; }
+  .corner.bl { bottom: 28px; left: 44px; }
+  .corner.br { bottom: 28px; right: 44px; text-align: right; }
+
+  /* === Title screen === */
+  #title {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 20;
+    pointer-events: none;
+    transition: opacity 1.4s ease;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,0.7) 100%);
+  }
+  #title.gone {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #title .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.55em;
+    color: var(--ink-faint);
+    margin-bottom: 28px;
+    text-transform: uppercase;
+  }
+  #title h1 {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: clamp(28px, 5.5vw, 68px);
+    letter-spacing: 0.18em;
+    text-align: center;
+    color: var(--ink);
+    text-shadow: 0 0 60px rgba(216, 180, 106, 0.18);
+    line-height: 1.1;
+  }
+  #title .sub {
+    margin-top: 28px;
+    font-style: italic;
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: clamp(13px, 1.4vw, 17px);
+    color: var(--ink-soft);
+    letter-spacing: 0.06em;
+    max-width: 640px;
+    text-align: center;
+  }
+  #title .enter {
+    margin-top: 80px;
+    font-size: 10.5px;
+    letter-spacing: 0.42em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    animation: enterPulse 2.6s ease-in-out infinite;
+  }
+  @keyframes enterPulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  /* === Loading === */
+  #loader {
+    position: fixed; inset: 0;
+    background: #02020a;
+    z-index: 30;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 1s ease;
+  }
+  #loader.gone { opacity: 0; pointer-events: none; }
+  #loader .ltext {
+    font-size: 10.5px;
+    letter-spacing: 0.5em;
+    color: var(--ink-faint);
+    margin-bottom: 26px;
+    text-transform: uppercase;
+  }
+  #loader .lbar {
+    width: 280px; height: 1px;
+    background: var(--ink-ghost);
+    position: relative;
+    overflow: hidden;
+  }
+  #loader .lbar::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, #d8b46a, transparent);
+    width: 40%;
+    animation: lscan 1.6s linear infinite;
+  }
+  @keyframes lscan {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+  #loader .lsub {
+    margin-top: 22px;
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    color: var(--ink-ghost);
+    text-transform: uppercase;
+  }
+
+  /* === Scroll hint === */
+  #scroll-hint {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9.5px;
+    letter-spacing: 0.4em;
+    color: var(--ink-ghost);
+    text-transform: uppercase;
+    z-index: 9;
+    transition: opacity 0.6s ease;
+  }
+  #scroll-hint.gone { opacity: 0; pointer-events: none; }
+  #scroll-hint .arrow {
+    display: block;
+    margin: 8px auto 0;
+    width: 1px; height: 22px;
+    background: linear-gradient(to bottom, var(--ink-ghost), transparent);
+    animation: scrollDown 1.8s ease-in-out infinite;
+  }
+  @keyframes scrollDown {
+    0%, 100% { transform: scaleY(1); opacity: 0.4; }
+    50%      { transform: scaleY(1.4); opacity: 1; }
+  }
+
+  @media (max-width: 720px) {
+    .hud-bar { padding: 18px 22px; }
+    #exhibit { left: 22px; right: 22px; bottom: 130px; }
+    #nav { right: 22px; bottom: 130px; }
+    .corner { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="loader">
+  <div class="ltext">Initialising Archive</div>
+  <div class="lbar"></div>
+  <div class="lsub">Reconstructing temporal catalogue · 3,029 CE</div>
+</div>
+
+<div id="title">
+  <div class="eyebrow">Archive 3,029 CE · Recovered</div>
+  <h1>THE DIGITAL MUSEUM<br/>OF HUMANITY</h1>
+  <div class="sub">An archive of objects that should not exist yet.</div>
+  <div class="enter">— Enter the archive —</div>
+</div>
+
+<div id="hud" style="display:none;">
+  <div class="corner tl">DMH · NODE 0 / 7</div>
+  <div class="corner tr">VAULT · <span id="vault-id">Σ-001</span></div>
+  <div class="corner bl"><span id="coords">x 00.000 · y 00.000 · z 00.000</span></div>
+  <div class="corner br">DIGITAL ARCHIVE OF HUMANITY</div>
+
+  <div class="hud-bar top">
+    <div class="seal"><span class="dot"></span><span id="seal-text">VAULT ACTIVE</span></div>
+    <div><span id="clock">21:18:46</span> · IST</div>
+  </div>
+
+  <div id="exhibit">
+    <div class="eyebrow"><span class="line"></span><span id="ex-num">ARTIFACT 001</span></div>
+    <h1 id="ex-title">The First AI-Generated Dream</h1>
+    <div class="meta">
+      <span><strong id="ex-date">2,847 CE</strong> · RECOVERED</span>
+      <span><strong id="ex-class">Class III</strong> · NEURAL</span>
+      <span><strong id="ex-origin">Synth. Origin</strong></span>
+    </div>
+    <p id="ex-desc">A pulsing impression recorded by the first neural network ever to dream. No input was given. No prompt was issued. The artefact emits a low, organic hum when held near any still-living mind.</p>
+    <div class="notation">CATALOGUE NOTE — HANDLE WITH ALL FREQUENCIES OF CARE</div>
+  </div>
+
+  <div id="nav">
+    <div class="nav-counter">
+      <span class="now" id="now-num">01</span>
+      <span id="of-total">of 08</span>
+    </div>
+    <div class="nav-buttons">
+      <button id="prev-btn" aria-label="Previous">‹</button>
+      <button id="next-btn" aria-label="Next">›</button>
+    </div>
+    <div class="nav-rail" id="nav-rail"></div>
+  </div>
+
+  <div id="scroll-hint"><span>Scroll to advance</span><span class="arrow"></span></div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ============================================================
+// ARTIFACT CATALOGUE
+// ============================================================
+const ARTIFACTS = [
+  {
+    id: '001',
+    title: 'The First AI-Generated Dream',
+    shortDate: '2,847 CE',
+    recovered: 'Mar 14 · 2,847 CE',
+    classification: 'Class III · Neural',
+    origin: 'Synth. Origin',
+    color: 0x9d4edd,
+    accent: 0xff6b9d,
+    camera: { pos: [4.5, 1.8, 5.5], target: [0, 0.2, 0] },
+    description: 'A pulsing impression recorded by the first neural network ever to dream. No input was given, no prompt was issued. The artefact emits a low, organic hum when held near any still-living mind — a resonance no engineer of its era could explain.'
+  },
+  {
+    id: '014',
+    title: 'The Last Physical Newspaper',
+    shortDate: '2,991 CE',
+    recovered: 'Aug 02 · 2,991 CE',
+    classification: 'Class II · Press',
+    origin: 'Reykjavík · Earth',
+    color: 0xc9a96b,
+    accent: 0xffd9a3,
+    camera: { pos: [-4.2, 2.4, 5.5], target: [0, 0.1, 0] },
+    description: 'The final printed edition of any newspaper on Earth, dated the morning public press was declared obsolete. It still smells faintly of rain and machine oil. The headline has been translated into 4,012 languages; none of them agree.'
+  },
+  {
+    id: '039',
+    title: 'Earth’s Final Photograph',
+    shortDate: '3,041 CE',
+    recovered: 'Jan 11 · 3,041 CE',
+    classification: 'Class I · Optical',
+    origin: 'Outer Heliosphere',
+    color: 0x4cc9f0,
+    accent: 0xff4d6d,
+    camera: { pos: [0, 1.6, 6.5], target: [0, 0.3, 0] },
+    description: 'The last image of Earth captured before the planet slipped beyond the reach of any lens. The faint red lines across the surface are not clouds. They are where the continents finally agreed to stop arguing.'
+  },
+  {
+    id: '072',
+    title: 'The First Martian Passport',
+    shortDate: '2,914 CE',
+    recovered: 'Jun 27 · 2,914 CE',
+    classification: 'Class IV · Civic',
+    origin: 'Olympus Mons',
+    color: 0xc1573f,
+    accent: 0xf4a261,
+    camera: { pos: [5.2, 2.2, 4.5], target: [0, 0.2, 0] },
+    description: 'Issued at the founding of the first human municipality off-world, this document is the seed of an empire that will last only forty-one years. Its holographic seal still flickers when addressed by name.'
+  },
+  {
+    id: '103',
+    title: 'The Last Human Message',
+    shortDate: '3,127 CE',
+    recovered: 'Dec 31 · 3,127 CE',
+    classification: 'Class V · Luminous',
+    origin: 'Unknown',
+    color: 0x6ec1e4,
+    accent: 0xa9e7ff,
+    camera: { pos: [-4.8, 1.8, 5.2], target: [0, 0.2, 0] },
+    description: 'Crystallised into a shard of synthetic corundum, this is the last coherent message encoded by a human voice. Its meaning has been parsed in 9,871 ways. All interpretations are, technically, correct.'
+  },
+  {
+    id: '187',
+    title: 'The First City on Europa',
+    shortDate: '2,963 CE',
+    recovered: 'Feb 09 · 2,963 CE',
+    classification: 'Class VI · Civic',
+    origin: 'Europa · Jupiter',
+    color: 0xb8e0f5,
+    accent: 0xffffff,
+    camera: { pos: [0, 4.2, 7.5], target: [0, 0.5, 0] },
+    description: 'A model of the first settlement raised beneath the ice of Jupiter’s sixth moon. The towers are not buildings — they are breathing. Each one still grows by less than a micron a year, as if the city refuses to be considered finished.'
+  },
+  {
+    id: '241',
+    title: 'The Device That Remembered Everything',
+    shortDate: '3,008 CE',
+    recovered: 'Sep 19 · 3,008 CE',
+    classification: 'Class VII · Mnemonic',
+    origin: 'Geneva · Earth',
+    color: 0xd8b46a,
+    accent: 0xfff1c2,
+    camera: { pos: [4.6, 2.6, 5.4], target: [0, 0.2, 0] },
+    description: 'A spherical artefact containing every conversation, every gesture, every silence ever observed by its original owner. It is said that listening to it for an entire night will cause you to remember a life that is not your own.'
+  },
+  {
+    id: '301',
+    title: 'The Last Photograph of the Sun',
+    shortDate: '3,184 CE',
+    recovered: 'Apr 03 · 3,184 CE',
+    classification: 'Class I · Optical',
+    origin: 'Kuiper Belt',
+    color: 0xff8a3d,
+    accent: 0xffd166,
+    camera: { pos: [0, 1.4, 6.8], target: [0, 0.4, 0] },
+    description: 'Captured from the edge of the Kuiper Belt on the morning the light began to fade. The corona is still warm. Photons from this image are expected to continue arriving in every direction for the next four billion years.'
+  }
+];
+
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+const state = {
+  current: 0,
+  next: 0,
+  transitioning: false,
+  transitionT: 0,
+  transitionDuration: 2.4,
+  mouseX: 0, mouseY: 0,
+  clock: new THREE.Clock(),
+  titleActive: true,
+  artifacts: [],  // groups
+  spotlights: [], // lights per artifact
+  envTarget: null,
+  lights: {},
+};
+
+// ============================================================
+// SHARED GLSL — Simplex 3D Noise (Stefan Gustavson)
+// ============================================================
+const NOISE_GLSL = /* glsl */ `
+vec4 _permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
+vec4 _taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
+float snoise(vec3 v){
+  const vec2  C = vec2(1.0/6.0, 1.0/3.0);
+  const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+  vec3 i  = floor(v + dot(v, C.yyy));
+  vec3 x0 = v - i + dot(i, C.xxx);
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min(g.xyz, l.zxy);
+  vec3 i2 = max(g.xyz, l.zxy);
+  vec3 x1 = x0 - i1 + 1.0 * C.xxx;
+  vec3 x2 = x0 - i2 + 2.0 * C.xxx;
+  vec3 x3 = x0 - 1.0 + 3.0 * C.xxx;
+  i = mod(i, 289.0);
+  vec4 p = _permute(_permute(_permute(i.z + vec4(0.0, i1.z, i2.z, 1.0))
+      + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+  float n_ = 1.0/7.0;
+  vec3 ns = n_ * D.wyz - D.xzx;
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_);
+  vec4 x = x_ *ns.x + ns.yyyy;
+  vec4 y = y_ *ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+  vec4 b0 = vec4(x.xy, y.xy);
+  vec4 b1 = vec4(x.zw, y.zw);
+  vec4 s0 = floor(b0)*2.0 + 1.0;
+  vec4 s1 = floor(b1)*2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+  vec3 p0 = vec3(a0.xy,h.x);
+  vec3 p1 = vec3(a0.zw,h.y);
+  vec3 p2 = vec3(a1.xy,h.z);
+  vec3 p3 = vec3(a1.zw,h.w);
+  vec4 norm = _taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+  p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+}
+float fbm(vec3 p){
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 5; i++) {
+    v += a * snoise(p);
+    p *= 2.0;
+    a *= 0.5;
+  }
+  return v;
+}
+`;
+
+// ============================================================
+// SCENE SETUP
+// ============================================================
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: true,
+  powerPreference: 'high-performance',
+  alpha: false,
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x02020a);
+scene.fog = new THREE.FogExp2(0x02020a, 0.045);
+
+// PMREM environment for reflections (no external HDR)
+const pmrem = new THREE.PMREMGenerator(renderer);
+const roomEnv = new RoomEnvironment();
+state.envTarget = pmrem.fromScene(roomEnv, 0.04).texture;
+scene.environment = state.envTarget;
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(4.5, 1.8, 5.5);
+camera.lookAt(0, 0.2, 0);
+
+// ============================================================
+// LIGHTING
+// ============================================================
+state.lights.hemi = new THREE.HemisphereLight(0x556677, 0x000511, 0.18);
+scene.add(state.lights.hemi);
+
+state.lights.ambient = new THREE.AmbientLight(0x202840, 0.25);
+scene.add(state.lights.ambient);
+
+// Single shared keylight for the whole hall (very dim)
+state.lights.key = new THREE.DirectionalLight(0x99aabb, 0.15);
+state.lights.key.position.set(8, 14, 6);
+scene.add(state.lights.key);
+
+// ============================================================
+// STARFIELD / SKYBOX
+// ============================================================
+function createStarfield() {
+  const starCount = 2400;
+  const positions = new Float32Array(starCount * 3);
+  const colors = new Float32Array(starCount * 3);
+  const sizes = new Float32Array(starCount);
+
+  for (let i = 0; i < starCount; i++) {
+    const r = 80 + Math.random() * 40;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    positions[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+    positions[i*3+1] = r * Math.cos(phi);
+    positions[i*3+2] = r * Math.sin(phi) * Math.sin(theta);
+
+    const t = Math.random();
+    const c = new THREE.Color().setHSL(0.55 + Math.random() * 0.2, 0.4, 0.5 + Math.random() * 0.5);
+    colors[i*3]   = c.r;
+    colors[i*3+1] = c.g;
+    colors[i*3+2] = c.b;
+
+    sizes[i] = Math.random() * 0.6 + 0.1;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      attribute float size;
+      varying vec3 vColor;
+      varying float vSize;
+      uniform float uTime;
+      void main(){
+        vColor = color;
+        vSize = size;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        float twinkle = 0.7 + 0.3 * sin(uTime * 1.5 + position.x * 0.3 + position.y * 0.5);
+        gl_PointSize = size * 60.0 * twinkle * (1.0 / -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      varying float vSize;
+      void main(){
+        vec2 uv = gl_PointCoord - 0.5;
+        float d = length(uv);
+        if (d > 0.5) discard;
+        float a = smoothstep(0.5, 0.0, d);
+        a *= a;
+        gl_FragColor = vec4(vColor, a * 0.9);
+      }
+    `,
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+
+  const stars = new THREE.Points(geo, mat);
+  scene.add(stars);
+  return mat;
+}
+
+const starMat = createStarfield();
+
+// Subtle nebula clouds in the distance
+function createNebula() {
+  const geo = new THREE.SphereGeometry(95, 32, 32);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColorA: { value: new THREE.Color(0x2a1b4a) },
+      uColorB: { value: new THREE.Color(0x0a1e3a) },
+    },
+    vertexShader: `
+      varying vec3 vPos;
+      void main(){
+        vPos = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vPos;
+      uniform float uTime;
+      uniform vec3 uColorA;
+      uniform vec3 uColorB;
+      ${NOISE_GLSL}
+      void main(){
+        vec3 p = normalize(vPos) * 2.5;
+        float n = fbm(p + vec3(uTime * 0.01));
+        float n2 = fbm(p * 2.0 - vec3(uTime * 0.005));
+        float v = smoothstep(0.2, 0.8, n + n2 * 0.3);
+        vec3 col = mix(uColorB, uColorA, v);
+        gl_FragColor = vec4(col, 0.95);
+      }
+    `,
+    side: THREE.BackSide,
+    depthWrite: false,
+    transparent: true,
+    blending: THREE.NormalBlending,
+  });
+  const sphere = new THREE.Mesh(geo, mat);
+  scene.add(sphere);
+  return mat;
+}
+const nebulaMat = createNebula();
+
+// ============================================================
+// HALL FLOOR — circular dark reflective platform
+// ============================================================
+function createFloor() {
+  // Dark reflective floor with subtle grid
+  const geo = new THREE.CircleGeometry(14, 96);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(0x0a0e18) },
+      uAccent: { value: new THREE.Color(0x1a2238) },
+      uSpotPos: { value: new THREE.Vector3(0, 4, 0) },
+      uSpotColor: { value: new THREE.Color(0xffffff) },
+    },
+    vertexShader: `
+      varying vec3 vWorldPos;
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorldPos = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vWorldPos;
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform vec3 uColor;
+      uniform vec3 uAccent;
+      uniform vec3 uSpotPos;
+      uniform vec3 uSpotColor;
+
+      void main(){
+        float d = length(vWorldPos.xz);
+        float fade = smoothstep(14.0, 4.0, d);
+
+        // Subtle grid lines (concentric)
+        float ring = abs(fract(d * 2.0) - 0.5);
+        ring = smoothstep(0.02, 0.0, ring);
+        float rings = ring * 0.08 * fade;
+
+        // Soft radial vignette inward
+        float vig = smoothstep(14.0, 0.5, d);
+
+        // Light spot from spotlight above
+        vec3 toSpot = normalize(uSpotPos - vWorldPos);
+        float spot = max(dot(normalize(vec3(0.0, 1.0, 0.0)), toSpot), 0.0);
+        float dist = length(vWorldPos.xz - uSpotPos.xz);
+        float spotMask = smoothstep(8.0, 0.0, dist) * 0.5;
+
+        vec3 col = mix(uColor, uAccent, rings * 4.0);
+        col += uSpotColor * spotMask * 0.25;
+
+        gl_FragColor = vec4(col, vig * 0.85);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+  });
+
+  const floor = new THREE.Mesh(geo, mat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -1.2;
+  scene.add(floor);
+  return mat;
+}
+const floorMat = createFloor();
+
+// Glass-like display platform for the current artifact
+function createDisplayPlatform(art) {
+  const group = new THREE.Group();
+
+  // Outer ring
+  const ringGeo = new THREE.TorusGeometry(1.6, 0.04, 16, 80);
+  const ringMat = new THREE.MeshPhysicalMaterial({
+    color: art.color,
+    emissive: art.color,
+    emissiveIntensity: 1.2,
+    metalness: 0.8,
+    roughness: 0.3,
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = -0.95;
+  group.add(ring);
+
+  // Inner glass disc
+  const discGeo = new THREE.CylinderGeometry(1.55, 1.55, 0.04, 64);
+  const discMat = new THREE.MeshPhysicalMaterial({
+    color: 0x0a0e18,
+    metalness: 0.2,
+    roughness: 0.05,
+    transmission: 0.85,
+    thickness: 0.2,
+    ior: 1.45,
+    transparent: true,
+    opacity: 0.55,
+    envMapIntensity: 1.4,
+  });
+  const disc = new THREE.Mesh(discGeo, discMat);
+  disc.position.y = -0.97;
+  group.add(disc);
+
+  // Light beam from above — a thin elongated shape suggesting volumetric light
+  const beamGeo = new THREE.CylinderGeometry(0.02, 1.4, 6, 32, 1, true);
+  const beamMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(art.color) },
+      uTime: { value: 0 },
+    },
+    vertexShader: `
+      varying float vY;
+      varying vec2 vUv;
+      void main(){
+        vY = position.y;
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying float vY;
+      varying vec2 vUv;
+      uniform vec3 uColor;
+      uniform float uTime;
+      void main(){
+        float top = smoothstep(6.0, 0.0, vY);
+        float edge = smoothstep(0.5, 0.45, abs(vUv.x - 0.5));
+        float a = top * edge * 0.18;
+        gl_FragColor = vec4(uColor, a);
+      }
+    `,
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  beam.position.y = 2.0;
+  group.add(beam);
+
+  group.userData.materials = [ringMat, beamMat];
+  group.userData.color = new THREE.Color(art.color);
+  return group;
+}
+
+// ============================================================
+// ARTIFACT BUILDERS
+// ============================================================
+
+// ---------- 001 — First AI-Generated Dream ----------
+function createArtifact001(art) {
+  const group = new THREE.Group();
+
+  // Inner pulsing organic sphere with displacement
+  const innerGeo = new THREE.IcosahedronGeometry(0.9, 64);
+  const innerMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColor1: { value: new THREE.Color(0x9d4edd) },
+      uColor2: { value: new THREE.Color(0xff6b9d) },
+      uColor3: { value: new THREE.Color(0x4cc9f0) },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying float vDisp;
+      uniform float uTime;
+      ${NOISE_GLSL}
+      void main(){
+        vec3 p = position;
+        float n = fbm(p * 1.5 + uTime * 0.4);
+        float n2 = snoise(p * 3.0 + uTime * 0.6);
+        float disp = n * 0.18 + n2 * 0.05;
+        p += normal * disp;
+        vDisp = disp;
+        vNormal = normalize(normalMatrix * normal);
+        vPos = p;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying float vDisp;
+      uniform float uTime;
+      uniform vec3 uColor1;
+      uniform vec3 uColor2;
+      uniform vec3 uColor3;
+      ${NOISE_GLSL}
+      void main(){
+        vec3 viewDir = normalize(cameraPosition - vPos);
+        float fres = pow(1.0 - max(dot(vNormal, viewDir), 0.0), 2.0);
+        float band = sin(vDisp * 14.0 + uTime) * 0.5 + 0.5;
+        vec3 col = mix(uColor1, uColor2, band);
+        col = mix(col, uColor3, fres * 0.6);
+        col += fres * uColor2 * 0.5;
+        gl_FragColor = vec4(col, 0.92);
+      }
+    `,
+    transparent: true,
+  });
+  const inner = new THREE.Mesh(innerGeo, innerMat);
+  group.add(inner);
+
+  // Outer wireframe sphere rotating slowly
+  const wireGeo = new THREE.IcosahedronGeometry(1.25, 2);
+  const wireMat = new THREE.MeshBasicMaterial({
+    color: 0xff6b9d,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.25,
+  });
+  const wire = new THREE.Mesh(wireGeo, wireMat);
+  group.add(wire);
+
+  // Tendrils — lines curving outward
+  const tendrilCount = 14;
+  for (let i = 0; i < tendrilCount; i++) {
+    const points = [];
+    const phi = (i / tendrilCount) * Math.PI * 2;
+    const dir = new THREE.Vector3(Math.cos(phi), 0, Math.sin(phi));
+    for (let j = 0; j < 24; j++) {
+      const t = j / 23;
+      const r = 0.9 + t * 0.9;
+      const wobble = Math.sin(t * 8 + i) * 0.2 * t;
+      const p = dir.clone().multiplyScalar(r).add(new THREE.Vector3(0, wobble, 0));
+      points.push(p);
+    }
+    const curve = new THREE.CatmullRomCurve3(points);
+    const tgeo = new THREE.TubeGeometry(curve, 48, 0.012, 6, false);
+    const tmat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(art.color).lerp(new THREE.Color(0xff6b9d), 0.5),
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+    });
+    const tendril = new THREE.Mesh(tgeo, tmat);
+    group.add(tendril);
+  }
+
+  group.userData.update = (t) => {
+    innerMat.uniforms.uTime.value = t;
+    wire.rotation.y = t * 0.15;
+    wire.rotation.x = t * 0.08;
+    group.rotation.y = t * 0.05;
+    group.position.y = Math.sin(t * 0.6) * 0.05;
+  };
+
+  return group;
+}
+
+// ---------- 014 — Last Physical Newspaper ----------
+function createArtifact014(art) {
+  const group = new THREE.Group();
+
+  // Stacked folded paper sheets
+  const sheets = [];
+  const sheetCount = 5;
+  for (let i = 0; i < sheetCount; i++) {
+    const w = 1.6 - i * 0.05;
+    const h = 1.1 - i * 0.03;
+    const geo = new THREE.PlaneGeometry(w, h, 24, 16);
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uIndex: { value: i },
+        uColor: { value: new THREE.Color(0xc9a96b) },
+        uAccent: { value: new THREE.Color(0x6e5436) },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        uniform float uTime;
+        uniform float uIndex;
+        void main(){
+          vUv = uv;
+          vec3 p = position;
+          // Subtle wave for paper curl
+          float curl = sin(p.x * 4.0 + uTime * 0.3 + uIndex) * 0.015;
+          p.z += curl;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform vec3 uColor;
+        uniform vec3 uAccent;
+        uniform float uTime;
+
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+        void main(){
+          vec2 uv = vUv;
+
+          // Newspaper: columns of text
+          float column = floor(uv.x * 5.0);
+          float colFract = fract(uv.x * 5.0);
+
+          // Each column is a sequence of "text lines"
+          float line = floor(uv.y * 22.0);
+          float lineFract = fract(uv.y * 22.0);
+
+          // Per-line variation
+          float lineLen = 0.5 + hash(vec2(column, line)) * 0.45;
+          float hasText = step(colFract, lineLen) * step(0.15, lineFract) * step(lineFract, 0.85);
+
+          // Title bar (top)
+          float title = step(0.85, uv.y) * step(0.05, uv.x) * step(uv.x, 0.95);
+          // Random "text" density variation
+          float density = 0.8 + 0.2 * sin(line * 0.7 + column);
+
+          vec3 base = mix(uColor * 0.7, uColor, uv.y * 0.6 + 0.4);
+          vec3 ink = mix(uAccent, vec3(0.15, 0.08, 0.05), 0.5);
+          vec3 col = base;
+          col = mix(col, ink, hasText * 0.85);
+          col = mix(col, uAccent * 0.4, title * 0.9);
+
+          // Aged paper noise
+          float age = (hash(uv * 200.0) - 0.5) * 0.06;
+          col += vec3(age);
+
+          // Edge vignette (paper edge)
+          float edge = smoothstep(0.0, 0.05, uv.x) * smoothstep(1.0, 0.95, uv.x)
+                     * smoothstep(0.0, 0.05, uv.y) * smoothstep(1.0, 0.95, uv.y);
+
+          gl_FragColor = vec4(col, edge * 0.95);
+        }
+      `,
+      side: THREE.DoubleSide,
+      transparent: true,
+    });
+
+    const sheet = new THREE.Mesh(geo, mat);
+    sheet.position.z = -i * 0.012;
+    sheet.position.y = -i * 0.015 + 0.2;
+    sheet.rotation.x = -0.08 + i * 0.01;
+    sheets.push({ mesh: sheet, mat });
+    group.add(sheet);
+  }
+
+  group.userData.update = (t) => {
+    sheets.forEach((s, i) => {
+      s.mat.uniforms.uTime.value = t;
+      s.mesh.position.y = 0.2 - i * 0.015 + Math.sin(t * 0.5 + i) * 0.005;
+      s.mesh.rotation.y = Math.sin(t * 0.3 + i * 0.7) * 0.03;
+    });
+    group.rotation.y = t * 0.04;
+    group.position.y = Math.sin(t * 0.7) * 0.05;
+  };
+
+  return group;
+}
+
+// ---------- 039 — Earth's Final Photograph ----------
+function createArtifact039(art) {
+  const group = new THREE.Group();
+
+  // Earth-like sphere with procedural continents and red fissures
+  const geo = new THREE.IcosahedronGeometry(1.15, 80);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColorOcean: { value: new THREE.Color(0x0a2540) },
+      uColorLand: { value: new THREE.Color(0x1a3a2a) },
+      uColorCrack: { value: new THREE.Color(0xff4d6d) },
+      uColorAtm: { value: new THREE.Color(0x4cc9f0) },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying vec3 vWorldNormal;
+      uniform float uTime;
+      ${NOISE_GLSL}
+      void main(){
+        vec3 p = position;
+        // Subtle terrain displacement
+        float n = fbm(p * 4.0) * 0.04;
+        p += normal * n;
+        vPos = p;
+        vNormal = normalize(normalMatrix * normal);
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying vec3 vWorldNormal;
+      uniform float uTime;
+      uniform vec3 uColorOcean;
+      uniform vec3 uColorLand;
+      uniform vec3 uColorCrack;
+      uniform vec3 uColorAtm;
+
+      ${NOISE_GLSL}
+
+      void main(){
+        vec3 dir = normalize(vPos);
+
+        // Continents via noise
+        float land = fbm(dir * 2.5 + 5.0);
+        float landMask = smoothstep(0.0, 0.15, land);
+
+        // Clouds
+        float clouds = fbm(dir * 4.0 + vec3(uTime * 0.05, 0.0, 0.0));
+        float cloudMask = smoothstep(0.25, 0.55, clouds) * 0.4;
+
+        // Red fissures — sharp cracks where land meets a specific value
+        float crackNoise = fbm(dir * 8.0);
+        float crackLine = abs(crackNoise - 0.0);
+        float crack = (1.0 - smoothstep(0.0, 0.02, crackLine)) * landMask;
+        // Make them glow
+        float crackPulse = 0.7 + 0.3 * sin(uTime * 1.2 + crackNoise * 6.0);
+
+        // Atmosphere rim
+        vec3 viewDir = normalize(cameraPosition - vPos);
+        float rim = pow(1.0 - max(dot(viewDir, vNormal), 0.0), 3.0);
+
+        vec3 col = mix(uColorOcean, uColorLand, landMask);
+        col += crack * uColorCrack * crackPulse * 1.5;
+        col = mix(col, vec3(1.0), cloudMask);
+        col += rim * uColorAtm * 0.8;
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+  const earth = new THREE.Mesh(geo, mat);
+  group.add(earth);
+
+  // Thin atmosphere shell
+  const atmGeo = new THREE.IcosahedronGeometry(1.28, 32);
+  const atmMat = new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(0x4cc9f0) } },
+    vertexShader: `
+      varying vec3 vNormal;
+      void main(){
+        vNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      uniform vec3 uColor;
+      void main(){
+        float a = pow(1.0 - abs(vNormal.z), 4.0);
+        gl_FragColor = vec4(uColor, a * 0.45);
+      }
+    `,
+    transparent: true,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const atm = new THREE.Mesh(atmGeo, atmMat);
+  group.add(atm);
+
+  group.userData.update = (t) => {
+    mat.uniforms.uTime.value = t;
+    group.rotation.y = t * 0.08;
+    group.position.y = Math.sin(t * 0.5) * 0.04;
+  };
+
+  return group;
+}
+
+// ---------- 072 — First Martian Passport ----------
+function createArtifact072(art) {
+  const group = new THREE.Group();
+
+  // Closed passport book
+  const coverGeo = new THREE.BoxGeometry(1.4, 0.95, 0.12);
+  const coverMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(0xc1573f) },
+      uAccent: { value: new THREE.Color(0xf4a261) },
+      uInk: { value: new THREE.Color(0x3a1a10) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      void main(){
+        vUv = uv;
+        vNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    uniform float uTime;
+    uniform vec3 uColor;
+    uniform vec3 uAccent;
+    uniform vec3 uInk;
+
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float noise2(vec2 p){
+      vec2 i = floor(p), f = fract(p);
+      float a = hash(i);
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+    }
+    float fbm2(vec2 p){
+      float v = 0.0; float a = 0.5;
+      for (int i = 0; i < 5; i++) {
+        v += a * noise2(p);
+        p *= 2.0; a *= 0.5;
+      }
+      return v;
+    }
+
+    void main(){
+      vec2 uv = vUv;
+
+      // The BoxGeometry's UV mapping: each face maps 0..1
+      // We want the larger top face. BoxGeometry has 6 faces; the top is +Y face
+      // Easiest: check vNormal.y
+      if (vNormal.y < 0.5) {
+        gl_FragColor = vec4(uInk, 1.0);
+        return;
+      }
+
+      // Leather texture
+      float grain = fbm2(uv * 60.0) * 0.3;
+      vec3 col = uColor + grain * 0.25 - 0.05;
+
+      // Border rectangle
+      float bx = step(0.08, uv.x) * step(uv.x, 0.92);
+      float by = step(0.10, uv.y) * step(uv.y, 0.90);
+      float outer = bx * by;
+      float ix = step(0.11, uv.x) * step(uv.x, 0.89);
+      float iy = step(0.13, uv.y) * step(uv.y, 0.87);
+      float inner = ix * iy;
+      float borderLine = outer - inner;
+      col = mix(col, uAccent, borderLine * 0.85);
+
+      // Central emblem — circle + star
+      vec2 center = vec2(0.5, 0.52);
+      float d = length(uv - center);
+      float ring = smoothstep(0.18, 0.16, d) - smoothstep(0.16, 0.14, d);
+      col = mix(col, uAccent, ring);
+      float star = smoothstep(0.07, 0.05, d);
+      col = mix(col, uAccent * 1.5, star);
+
+      // Title bar at top
+      float title = step(0.78, uv.y) * step(uv.y, 0.84) * step(0.15, uv.x) * step(uv.x, 0.85);
+      col = mix(col, uAccent * 1.2, title);
+
+      float sub = step(0.72, uv.y) * step(uv.y, 0.76) * step(0.20, uv.x) * step(uv.x, 0.80);
+      col = mix(col, uAccent * 0.8, sub);
+
+      // Mars dust speckle
+      float dust = step(0.7, hash(floor(uv * 800.0)));
+      col += vec3(dust * 0.1, dust * 0.05, 0.0);
+
+      // Hologram shimmer
+      float holo = sin(uTime * 1.2 + uv.x * 30.0 + uv.y * 20.0) * 0.5 + 0.5;
+      col += uAccent * holo * ring * 0.4;
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+  });
+
+  const cover = new THREE.Mesh(coverGeo, coverMat);
+  group.add(cover);
+
+  // Pages — slightly visible stack on side
+  const pagesGeo = new THREE.BoxGeometry(1.34, 0.89, 0.09);
+  const pagesMat = new THREE.MeshStandardMaterial({
+    color: 0xe8d8b8,
+    roughness: 0.9,
+    metalness: 0.0,
+  });
+  const pages = new THREE.Mesh(pagesGeo, pagesMat);
+  pages.position.z = -0.005;
+  group.add(pages);
+
+  // Floating dust (Mars-red)
+  const dustGeo = new THREE.BufferGeometry();
+  const dustCount = 200;
+  const dustPos = new Float32Array(dustCount * 3);
+  const dustOff = new Float32Array(dustCount);
+  for (let i = 0; i < dustCount; i++) {
+    const r = 1.0 + Math.random() * 1.5;
+    const theta = Math.random() * Math.PI * 2;
+    dustPos[i*3]   = Math.cos(theta) * r;
+    dustPos[i*3+1] = (Math.random() - 0.5) * 0.8;
+    dustPos[i*3+2] = Math.sin(theta) * r;
+    dustOff[i] = Math.random() * 10;
+  }
+  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+  dustGeo.setAttribute('aOff', new THREE.BufferAttribute(dustOff, 1));
+
+  const dustMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0xf4a261) } },
+    vertexShader: `
+      attribute float aOff;
+      varying float vAlpha;
+      uniform float uTime;
+      void main(){
+        vec3 p = position;
+        p.y += sin(uTime * 0.5 + aOff) * 0.3;
+        p.x += cos(uTime * 0.3 + aOff * 1.7) * 0.1;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = 2.5 * (50.0 / -mv.z);
+        vAlpha = 0.5 + 0.5 * sin(uTime + aOff);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      varying float vAlpha;
+      uniform vec3 uColor;
+      void main(){
+        vec2 uv = gl_PointCoord - 0.5;
+        if (length(uv) > 0.5) discard;
+        gl_FragColor = vec4(uColor, vAlpha * 0.5);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const dust = new THREE.Points(dustGeo, dustMat);
+  group.add(dust);
+
+  group.userData.update = (t) => {
+    coverMat.uniforms.uTime.value = t;
+    dustMat.uniforms.uTime.value = t;
+    group.rotation.y = t * 0.06;
+    group.position.y = Math.sin(t * 0.7) * 0.04;
+  };
+
+  return group;
+}
+
+// ---------- 103 — Last Human Message ----------
+function createArtifact103(art) {
+  const group = new THREE.Group();
+
+  // Crystalline octahedron shard
+  const geo = new THREE.OctahedronGeometry(1.1, 1);
+  // Slightly elongate
+  geo.scale(0.7, 1.4, 0.7);
+
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(0x6ec1e4) },
+      uAccent: { value: new THREE.Color(0xa9e7ff) },
+      uCore: { value: new THREE.Color(0xffffff) },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying vec3 vWorldPos;
+      void main(){
+        vNormal = normalize(normalMatrix * normal);
+        vPos = position;
+        vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying vec3 vWorldPos;
+      uniform float uTime;
+      uniform vec3 uColor;
+      uniform vec3 uAccent;
+      uniform vec3 uCore;
+      ${NOISE_GLSL}
+      void main(){
+        vec3 viewDir = normalize(cameraPosition - vWorldPos);
+
+        // Fresnel
+        float fres = pow(1.0 - max(dot(viewDir, vNormal), 0.0), 2.5);
+
+        // Internal data — bands of light simulating encoded patterns
+        float bands = sin(vPos.y * 24.0 + uTime * 0.8) * 0.5 + 0.5;
+        float data = step(0.7, fract(vPos.y * 60.0 + uTime * 0.2));
+        float internal = (bands * 0.4 + data * 0.8);
+
+        vec3 col = mix(uColor * 0.4, uAccent, internal);
+        col = mix(col, uCore, fres * 0.7);
+        col += uAccent * fres * 0.5;
+
+        // Bright core through center
+        float core = smoothstep(1.0, 0.0, length(vPos.yz));
+        col += uCore * core * 0.3 * (0.7 + 0.3 * sin(uTime * 1.5));
+
+        gl_FragColor = vec4(col, 0.95);
+      }
+    `,
+    transparent: true,
+  });
+
+  const crystal = new THREE.Mesh(geo, mat);
+  group.add(crystal);
+
+  // Inner glowing core
+  const coreGeo = new THREE.SphereGeometry(0.18, 24, 24);
+  const coreMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.9,
+  });
+  const core = new THREE.Mesh(coreGeo, coreMat);
+  group.add(core);
+
+  // Halo
+  const haloGeo = new THREE.SphereGeometry(0.4, 24, 24);
+  const haloMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0xa9e7ff) } },
+    vertexShader: `
+      varying vec3 vNormal;
+      void main(){
+        vNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      uniform vec3 uColor;
+      void main(){
+        float a = pow(1.0 - abs(vNormal.z), 2.0);
+        gl_FragColor = vec4(uColor, a * 0.6);
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const halo = new THREE.Mesh(haloGeo, haloMat);
+  group.add(halo);
+
+  group.userData.update = (t) => {
+    mat.uniforms.uTime.value = t;
+    haloMat.uniforms.uTime.value = t;
+    group.rotation.y = t * 0.25;
+    group.rotation.x = Math.sin(t * 0.4) * 0.15;
+    group.position.y = Math.sin(t * 0.6) * 0.06;
+    core.scale.setScalar(1 + Math.sin(t * 2) * 0.1);
+  };
+
+  return group;
+}
+
+// ---------- 187 — First City on Europa ----------
+function createArtifact187(art) {
+  const group = new THREE.Group();
+
+  // Ice plain base
+  const baseGeo = new THREE.CylinderGeometry(1.6, 1.7, 0.08, 64);
+  const baseMat = new THREE.MeshPhysicalMaterial({
+    color: 0xc7e0f0,
+    metalness: 0.3,
+    roughness: 0.15,
+    transmission: 0.4,
+    thickness: 0.3,
+    ior: 1.31,
+    transparent: true,
+    opacity: 0.7,
+  });
+  const base = new THREE.Mesh(baseGeo, baseMat);
+  base.position.y = -0.6;
+  group.add(base);
+
+  // Ice towers — cluster of cones & cylinders
+  const towerMat = new THREE.MeshPhysicalMaterial({
+    color: 0xe8f4ff,
+    metalness: 0.4,
+    roughness: 0.1,
+    transmission: 0.7,
+    thickness: 0.5,
+    ior: 1.45,
+    transparent: true,
+    opacity: 0.85,
+    envMapIntensity: 1.5,
+  });
+
+  const towerCount = 28;
+  const towers = [];
+  for (let i = 0; i < towerCount; i++) {
+    const r = Math.random() * 1.3 + 0.1;
+    const theta = Math.random() * Math.PI * 2;
+    const x = Math.cos(theta) * r;
+    const z = Math.sin(theta) * r;
+    const height = 0.4 + Math.random() * 1.4;
+    const width = 0.06 + Math.random() * 0.12;
+
+    // Mix cones (towers with pointed tops) and cylinders
+    let geo;
+    if (Math.random() < 0.6) {
+      geo = new THREE.ConeGeometry(width, height, 6, 4);
+    } else {
+      geo = new THREE.CylinderGeometry(width * 0.7, width, height, 8, 4);
+    }
+
+    const tower = new THREE.Mesh(geo, towerMat);
+    tower.position.set(x, -0.6 + height / 2, z);
+    tower.rotation.y = Math.random() * Math.PI;
+    group.add(tower);
+    towers.push({ mesh: tower, baseHeight: height, phase: Math.random() * Math.PI * 2 });
+
+    // Window light — small emissive sphere at top of each tower
+    const lightGeo = new THREE.SphereGeometry(0.015, 8, 8);
+    const lightMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(art.color).lerp(new THREE.Color(0xffffff), 0.4),
+    });
+    const tl = new THREE.Mesh(lightGeo, lightMat);
+    tl.position.set(x, -0.6 + height + 0.02, z);
+    group.add(tl);
+  }
+
+  // Central larger structure
+  const centralGeo = new THREE.CylinderGeometry(0.3, 0.4, 1.8, 8, 4);
+  const central = new THREE.Mesh(centralGeo, towerMat);
+  central.position.y = 0.3;
+  group.add(central);
+  towers.push({ mesh: central, baseHeight: 1.8, phase: 0 });
+
+  // Dome on top
+  const domeGeo = new THREE.SphereGeometry(0.3, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+  const dome = new THREE.Mesh(domeGeo, towerMat);
+  dome.position.y = 1.2;
+  group.add(dome);
+
+  // Glow line under city
+  const glowGeo = new THREE.TorusGeometry(1.7, 0.03, 16, 80);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: art.color,
+    transparent: true,
+    opacity: 0.7,
+  });
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  glow.rotation.x = Math.PI / 2;
+  glow.position.y = -0.58;
+  group.add(glow);
+
+  group.userData.update = (t) => {
+    towers.forEach((tw, i) => {
+      const s = 1 + Math.sin(t * 0.5 + tw.phase) * 0.015;
+      tw.mesh.scale.y = s;
+    });
+    group.rotation.y = t * 0.05;
+    glow.material.opacity = 0.5 + Math.sin(t * 1.2) * 0.15;
+  };
+
+  return group;
+}
+
+// ---------- 241 — Device That Remembered Everything ----------
+function createArtifact241(art) {
+  const group = new THREE.Group();
+
+  // Central orb
+  const coreGeo = new THREE.IcosahedronGeometry(0.55, 32);
+  const coreMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(0xd8b46a) },
+      uAccent: { value: new THREE.Color(0xfff1c2) },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      void main(){
+        vNormal = normalize(normalMatrix * normal);
+        vPos = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      uniform float uTime;
+      uniform vec3 uColor;
+      uniform vec3 uAccent;
+      ${NOISE_GLSL}
+      void main(){
+        vec3 viewDir = normalize(cameraPosition - (modelMatrix * vec4(vPos, 1.0)).xyz);
+        float fres = pow(1.0 - max(dot(viewDir, vNormal), 0.0), 2.0);
+
+        float n = fbm(vPos * 3.0 + uTime * 0.3);
+        float band = sin(n * 8.0 + uTime) * 0.5 + 0.5;
+
+        vec3 col = mix(uColor, uAccent, fres * 0.7);
+        col += uAccent * band * 0.4;
+        col += fres * uAccent * 0.8;
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+  const core = new THREE.Mesh(coreGeo, coreMat);
+  group.add(core);
+
+  // Concentric rings
+  const rings = [];
+  const ringCount = 6;
+  for (let i = 0; i < ringCount; i++) {
+    const radius = 0.85 + i * 0.12;
+    const ringGeo = new THREE.TorusGeometry(radius, 0.012 + i * 0.004, 12, 96);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(art.color).lerp(new THREE.Color(0xfff1c2), 0.3 + i * 0.1),
+      transparent: true,
+      opacity: 0.7,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+
+    // Random initial orientation
+    ring.rotation.x = Math.random() * Math.PI;
+    ring.rotation.y = Math.random() * Math.PI;
+    group.add(ring);
+    rings.push({
+      mesh: ring,
+      mat: ringMat,
+      axis: new THREE.Vector3(Math.random() - 0.5, 1, Math.random() - 0.5).normalize(),
+      speed: 0.1 + Math.random() * 0.4,
+      wobbleSpeed: 0.3 + Math.random() * 0.5,
+      wobbleAmp: 0.05 + Math.random() * 0.1,
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+
+  // Vertical thin needle going through
+  const needleGeo = new THREE.CylinderGeometry(0.008, 0.008, 3.0, 8);
+  const needleMat = new THREE.MeshBasicMaterial({
+    color: 0xfff1c2,
+    transparent: true,
+    opacity: 0.5,
+  });
+  const needle = new THREE.Mesh(needleGeo, needleMat);
+  group.add(needle);
+
+  // Particles of data streaming around
+  const partCount = 220;
+  const partGeo = new THREE.BufferGeometry();
+  const partPos = new Float32Array(partCount * 3);
+  const partOff = new Float32Array(partCount);
+  for (let i = 0; i < partCount; i++) {
+    const r = 1.4 + Math.random() * 0.4;
+    const theta = Math.random() * Math.PI * 2;
+    const y = (Math.random() - 0.5) * 1.5;
+    partPos[i*3]   = Math.cos(theta) * r;
+    partPos[i*3+1] = y;
+    partPos[i*3+2] = Math.sin(theta) * r;
+    partOff[i] = Math.random() * Math.PI * 2;
+  }
+  partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
+  partGeo.setAttribute('aOff', new THREE.BufferAttribute(partOff, 1));
+
+  const partMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0xfff1c2) } },
+    vertexShader: `
+      attribute float aOff;
+      varying float vAlpha;
+      uniform float uTime;
+      void main(){
+        vec3 p = position;
+        float a = uTime * 0.6 + aOff;
+        p.x = cos(a) * length(position.xz);
+        p.z = sin(a) * length(position.xz);
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = 2.0 * (60.0 / -mv.z);
+        vAlpha = 0.6 + 0.4 * sin(uTime * 2.0 + aOff);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      varying float vAlpha;
+      uniform vec3 uColor;
+      void main(){
+        vec2 uv = gl_PointCoord - 0.5;
+        if (length(uv) > 0.5) discard;
+        gl_FragColor = vec4(uColor, vAlpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const parts = new THREE.Points(partGeo, partMat);
+  group.add(parts);
+
+  group.userData.update = (t) => {
+    coreMat.uniforms.uTime.value = t;
+    partMat.uniforms.uTime.value = t;
+    rings.forEach((r) => {
+      r.mesh.rotateOnAxis(r.axis, r.speed * 0.016);
+      r.mesh.rotation.x += Math.sin(t * r.wobbleSpeed + r.phase) * r.wobbleAmp * 0.01;
+    });
+    needle.rotation.y = t * 0.3;
+    needle.rotation.x = Math.sin(t * 0.4) * 0.1;
+    group.rotation.y = t * 0.04;
+  };
+
+  return group;
+}
+
+// ---------- 301 — Last Photograph of the Sun ----------
+function createArtifact301(art) {
+  const group = new THREE.Group();
+
+  // Sun sphere with churning surface
+  const geo = new THREE.IcosahedronGeometry(0.95, 64);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColorCore: { value: new THREE.Color(0xffd166) },
+      uColorMid: { value: new THREE.Color(0xff8a3d) },
+      uColorEdge: { value: new THREE.Color(0xb5341a) },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying vec3 vWorldPos;
+      uniform float uTime;
+      ${NOISE_GLSL}
+      void main(){
+        vec3 p = position;
+        // Solar surface churning
+        float n = fbm(p * 2.5 + vec3(uTime * 0.4));
+        float n2 = snoise(p * 5.0 + vec3(uTime * 0.6));
+        p += normal * (n * 0.06 + n2 * 0.02);
+        vPos = p;
+        vNormal = normalize(normalMatrix * normal);
+        vWorldPos = (modelMatrix * vec4(p, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying vec3 vWorldPos;
+      uniform float uTime;
+      uniform vec3 uColorCore;
+      uniform vec3 uColorMid;
+      uniform vec3 uColorEdge;
+      ${NOISE_GLSL}
+      void main(){
+        // Sunspot-like cool patches
+        float n = fbm(vPos * 3.0 + vec3(uTime * 0.2));
+        float n2 = fbm(vPos * 8.0 + vec3(uTime * 0.5));
+
+        vec3 col = mix(uColorEdge, uColorMid, smoothstep(0.0, 0.5, n));
+        col = mix(col, uColorCore, smoothstep(0.4, 0.8, n));
+
+        // Sunspots
+        float spot = smoothstep(0.6, 0.55, n2);
+        col = mix(col, uColorEdge * 0.6, spot * 0.7);
+
+        // Surface granulation
+        float gran = sin(n2 * 30.0 + uTime) * 0.5 + 0.5;
+        col += vec3(0.15, 0.08, 0.0) * gran * 0.2;
+
+        // Limb darkening (edges darker)
+        vec3 viewDir = normalize(cameraPosition - vWorldPos);
+        float limb = max(dot(viewDir, vNormal), 0.0);
+        col *= mix(0.7, 1.0, limb);
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+  const sun = new THREE.Mesh(geo, mat);
+  group.add(sun);
+
+  // Outer corona glow
+  const coronaGeo = new THREE.IcosahedronGeometry(1.3, 32);
+  const coronaMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0xff8a3d) } },
+    vertexShader: `
+      varying vec3 vNormal;
+      void main(){
+        vNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      uniform float uTime;
+      uniform vec3 uColor;
+      void main(){
+        float a = pow(1.0 - abs(vNormal.z), 2.5);
+        float pulse = 0.8 + 0.2 * sin(uTime * 0.6);
+        gl_FragColor = vec4(uColor, a * 0.45 * pulse);
+      }
+    `,
+    transparent: true,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const corona = new THREE.Mesh(coronaGeo, coronaMat);
+  group.add(corona);
+
+  // Solar flares — particles streaming outward
+  const flareCount = 350;
+  const flareGeo = new THREE.BufferGeometry();
+  const flarePos = new Float32Array(flareCount * 3);
+  const flareDir = new Float32Array(flareCount * 3);
+  const flareOff = new Float32Array(flareCount);
+
+  for (let i = 0; i < flareCount; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const dx = Math.sin(phi) * Math.cos(theta);
+    const dy = Math.cos(phi);
+    const dz = Math.sin(phi) * Math.sin(theta);
+    flarePos[i*3]   = dx * 1.0;
+    flarePos[i*3+1] = dy * 1.0;
+    flarePos[i*3+2] = dz * 1.0;
+    flareDir[i*3]   = dx;
+    flareDir[i*3+1] = dy;
+    flareDir[i*3+2] = dz;
+    flareOff[i] = Math.random();
+  }
+
+  flareGeo.setAttribute('position', new THREE.BufferAttribute(flarePos, 3));
+  flareGeo.setAttribute('aDir', new THREE.BufferAttribute(flareDir, 3));
+  flareGeo.setAttribute('aOff', new THREE.BufferAttribute(flareOff, 1));
+
+  const flareMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0xffd166) } },
+    vertexShader: `
+      attribute vec3 aDir;
+      attribute float aOff;
+      varying float vAlpha;
+      uniform float uTime;
+      void main(){
+        vec3 p = position;
+        // Each particle streams outward along its direction
+        float t = mod(uTime * 0.4 + aOff, 1.0);
+        float dist = 1.0 + t * 1.8;
+        p = aDir * dist;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = (1.5 + (1.0 - t) * 3.0) * (60.0 / -mv.z);
+        vAlpha = (1.0 - t) * (1.0 - t) * 0.8;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      varying float vAlpha;
+      uniform vec3 uColor;
+      void main(){
+        vec2 uv = gl_PointCoord - 0.5;
+        float d = length(uv);
+        if (d > 0.5) discard;
+        float a = (1.0 - d * 2.0);
+        gl_FragColor = vec4(uColor, a * vAlpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const flares = new THREE.Points(flareGeo, flareMat);
+  group.add(flares);
+
+  group.userData.update = (t) => {
+    mat.uniforms.uTime.value = t;
+    coronaMat.uniforms.uTime.value = t;
+    flareMat.uniforms.uTime.value = t;
+    group.rotation.y = t * 0.06;
+    group.position.y = Math.sin(t * 0.4) * 0.03;
+  };
+
+  return group;
+}
+
+// ============================================================
+// CREATE ALL ARTIFACTS
+// ============================================================
+function createArtifactGroup(idx) {
+  const art = ARTIFACTS[idx];
+  const wrap = new THREE.Group();
+  wrap.position.set(0, 0, 0);
+
+  // Build artifact
+  let artifact;
+  switch (art.id) {
+    case '001': artifact = createArtifact001(art); break;
+    case '014': artifact = createArtifact014(art); break;
+    case '039': artifact = createArtifact039(art); break;
+    case '072': artifact = createArtifact072(art); break;
+    case '103': artifact = createArtifact103(art); break;
+    case '187': artifact = createArtifact187(art); break;
+    case '241': artifact = createArtifact241(art); break;
+    case '301': artifact = createArtifact301(art); break;
+  }
+  wrap.add(artifact);
+  wrap.userData.artifact = artifact;
+  wrap.userData.art = art;
+
+  // Per-artifact spotlight
+  const spot = new THREE.SpotLight(art.color, 6.0, 18, Math.PI / 7, 0.5, 1.5);
+  spot.position.set(0, 5, 1.5);
+  spot.target.position.set(0, 0, 0);
+  wrap.add(spot);
+  wrap.add(spot.target);
+  wrap.userData.spot = spot;
+
+  // Per-artifact display platform
+  const platform = createDisplayPlatform(art);
+  wrap.add(platform);
+  wrap.userData.platform = platform;
+
+  // Per-artifact fill point light for color spill
+  const fill = new THREE.PointLight(art.accent, 1.5, 6, 1.5);
+  fill.position.set(0, 0.5, 0);
+  wrap.add(fill);
+  wrap.userData.fill = fill;
+
+  wrap.visible = (idx === 0);
+  return wrap;
+}
+
+// ============================================================
+// SCENE ASSEMBLY
+// ============================================================
+for (let i = 0; i < ARTIFACTS.length; i++) {
+  const grp = createArtifactGroup(i);
+  scene.add(grp);
+  state.artifacts.push(grp);
+}
+
+// Ambient dust particles across whole scene
+function createAmbientDust() {
+  const count = 1800;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count * 3);
+  const off = new Float32Array(count);
+
+  for (let i = 0; i < count; i++) {
+    // Cylindrical volume around origin
+    const r = 1.8 + Math.random() * 8;
+    const theta = Math.random() * Math.PI * 2;
+    const y = (Math.random() - 0.5) * 6;
+    pos[i*3]   = Math.cos(theta) * r;
+    pos[i*3+1] = y;
+    pos[i*3+2] = Math.sin(theta) * r;
+    off[i] = Math.random() * 100;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aOff', new THREE.BufferAttribute(off, 1));
+
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      attribute float aOff;
+      varying float vAlpha;
+      uniform float uTime;
+      void main(){
+        vec3 p = position;
+        p.y += sin(uTime * 0.15 + aOff) * 0.4;
+        p.x += cos(uTime * 0.1 + aOff * 1.3) * 0.2;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = 1.4 * (60.0 / -mv.z);
+        vAlpha = 0.15 + 0.25 * sin(uTime * 0.4 + aOff);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      varying float vAlpha;
+      void main(){
+        vec2 uv = gl_PointCoord - 0.5;
+        float d = length(uv);
+        if (d > 0.5) discard;
+        gl_FragColor = vec4(0.85, 0.82, 0.72, vAlpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+
+  const dust = new THREE.Points(geo, mat);
+  scene.add(dust);
+  return mat;
+}
+const ambientDustMat = createAmbientDust();
+
+// ============================================================
+// POST-PROCESSING
+// ============================================================
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+composer.setSize(window.innerWidth, window.innerHeight);
+
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.85,   // strength
+  0.6,    // radius
+  0.15    // threshold
+);
+composer.addPass(bloomPass);
+
+// Custom cinematic grade — vignette, grain, slight chromatic aberration
+const gradePass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 },
+    uVignette: { value: 1.0 },
+    uGrain: { value: 0.04 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    uniform float uVignette;
+    uniform float uGrain;
+
+    float rand(vec2 co){
+      return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+
+    void main(){
+      vec2 uv = vUv;
+      // Chromatic aberration
+      float ca = 0.0025;
+      vec3 col;
+      col.r = texture2D(tDiffuse, uv + vec2(ca, 0.0)).r;
+      col.g = texture2D(tDiffuse, uv).g;
+      col.b = texture2D(tDiffuse, uv - vec2(ca, 0.0)).b;
+
+      // Vignette
+      vec2 cv = uv - 0.5;
+      float v = 1.0 - dot(cv, cv) * uVignette;
+      col *= v;
+
+      // Film grain
+      float g = rand(uv + fract(uTime)) - 0.5;
+      col += g * uGrain;
+
+      // Subtle warm tint
+      col = mix(col, col * vec3(1.04, 0.99, 0.92), 0.3);
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+});
+composer.addPass(gradePass);
+
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
+
+// ============================================================
+// CAMERA SYSTEM
+// ============================================================
+const camLerp = {
+  pos: new THREE.Vector3(),
+  target: new THREE.Vector3(),
+  currentTarget: new THREE.Vector3(),
+};
+camLerp.pos.copy(new THREE.Vector3(...ARTIFACTS[0].camera.pos));
+camLerp.target.copy(new THREE.Vector3(...ARTIFACTS[0].camera.target));
+camera.position.copy(camLerp.pos);
+camera.lookAt(camLerp.target);
+camLerp.currentTarget.copy(camLerp.target);
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+let navLocked = false;
+function navigate(dir) {
+  if (navLocked) return;
+  const next = (state.current + dir + ARTIFACTS.length) % ARTIFACTS.length;
+  if (next === state.current) return;
+
+  navLocked = true;
+  state.next = next;
+
+  // Prepare next artifact
+  state.artifacts[next].visible = true;
+  state.artifacts[next].scale.set(0.85, 0.85, 0.85);
+
+  // Trigger UI fade
+  const ex = document.getElementById('exhibit');
+  ex.classList.remove('visible');
+
+  // Hide scroll hint
+  document.getElementById('scroll-hint').classList.add('gone');
+
+  // Start transition after UI fade
+  setTimeout(() => {
+    updateUI(next);
+    state.transitioning = true;
+    state.transitionT = 0;
+
+    // Hide current, show next
+    state.artifacts[state.current].visible = false;
+    state.artifacts[next].visible = true;
+  }, 350);
+
+  setTimeout(() => {
+    state.current = next;
+    navLocked = false;
+  }, state.transitionDuration * 1000 + 400);
+}
+
+function updateUI(idx) {
+  const art = ARTIFACTS[idx];
+  document.getElementById('ex-num').textContent = `ARTIFACT ${art.id}`;
+  document.getElementById('ex-title').textContent = art.title;
+  document.getElementById('ex-date').textContent = art.shortDate;
+  document.getElementById('ex-class').textContent = art.classification;
+  document.getElementById('ex-origin').textContent = art.origin;
+  document.getElementById('ex-desc').textContent = art.description;
+  document.getElementById('now-num').textContent = String(idx + 1).padStart(2, '0');
+  document.getElementById('of-total').textContent = `of ${String(ARTIFACTS.length).padStart(2, '0')}`;
+  document.getElementById('vault-id').textContent = `Σ-${art.id}`;
+  document.getElementById('coords').textContent = `NODE ${idx} · ${art.id} · ${art.origin.split(' ')[0].toUpperCase()}`;
+
+  // Update rail
+  const rail = document.getElementById('nav-rail');
+  rail.innerHTML = '';
+  for (let i = 0; i < ARTIFACTS.length; i++) {
+    const tick = document.createElement('div');
+    tick.className = 'tick' + (i === idx ? ' active' : '');
+    rail.appendChild(tick);
+  }
+
+  // Re-show exhibit
+  setTimeout(() => {
+    document.getElementById('exhibit').classList.add('visible');
+  }, 80);
+
+  // Update button states
+  document.getElementById('prev-btn').disabled = (idx === 0);
+  document.getElementById('next-btn').disabled = (idx === ARTIFACTS.length - 1);
+}
+
+// ============================================================
+// EVENTS
+// ============================================================
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.resolution.set(window.innerWidth, window.innerHeight);
+});
+
+document.getElementById('prev-btn').addEventListener('click', () => navigate(-1));
+document.getElementById('next-btn').addEventListener('click', () => navigate(1));
+
+window.addEventListener('keydown', (e) => {
+  if (state.titleActive) {
+    enterMuseum();
+    return;
+  }
+  if (e.key === 'ArrowRight' || e.key === 'd') navigate(1);
+  if (e.key === 'ArrowLeft' || e.key === 'a') navigate(-1);
+  if (e.key === 'ArrowDown') navigate(1);
+  if (e.key === 'ArrowUp') navigate(-1);
+});
+
+window.addEventListener('wheel', (e) => {
+  if (state.titleActive) {
+    enterMuseum();
+    return;
+  }
+  if (Math.abs(e.deltaY) < 12) return;
+  navigate(e.deltaY > 0 ? 1 : -1);
+  document.getElementById('scroll-hint').classList.add('gone');
+}, { passive: true });
+
+window.addEventListener('mousemove', (e) => {
+  state.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+  state.mouseY = (e.clientY / window.innerHeight) * 2 - 1;
+});
+
+let touchStartY = 0;
+window.addEventListener('touchstart', (e) => {
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+window.addEventListener('touchend', (e) => {
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dy) > 40) {
+    navigate(dy < 0 ? 1 : -1);
+    document.getElementById('scroll-hint').classList.add('gone');
+  }
+}, { passive: true });
+
+// Click on title to enter
+document.getElementById('title').addEventListener('click', enterMuseum);
+
+function enterMuseum() {
+  if (!state.titleActive) return;
+  state.titleActive = false;
+  document.getElementById('title').classList.add('gone');
+  document.getElementById('hud').style.display = 'block';
+  setTimeout(() => {
+    document.getElementById('exhibit').classList.add('visible');
+  }, 400);
+  setTimeout(() => {
+    document.getElementById('scroll-hint').classList.add('gone');
+  }, 8000);
+}
+
+// Update clock
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// INITIAL UI
+// ============================================================
+updateUI(0);
+
+// ============================================================
+// ANIMATION LOOP
+// ============================================================
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function animate() {
+  const delta = state.clock.getDelta();
+  const t = state.clock.elapsedTime;
+
+  // Update background uniforms
+  starMat.uniforms.uTime.value = t;
+  nebulaMat.uniforms.uTime.value = t;
+  floorMat.uniforms.uTime.value = t;
+  ambientDustMat.uniforms.uTime.value = t;
+  gradePass.uniforms.uTime.value = t;
+
+  // Update active artifacts (always update current; fade in next during transition)
+  state.artifacts.forEach((grp, i) => {
+    if (!grp.visible) return;
+    if (grp.userData.artifact && grp.userData.artifact.userData.update) {
+      grp.userData.artifact.userData.update(t);
+    }
+    if (grp.userData.platform && grp.userData.platform.userData.materials) {
+      grp.userData.platform.userData.materials.forEach(m => {
+        if (m.uniforms && m.uniforms.uTime) m.uniforms.uTime.value = t;
+      });
+    }
+  });
+
+  // Camera transition
+  const targetArt = ARTIFACTS[state.current];
+  const targetPos = new THREE.Vector3(...targetArt.camera.pos);
+  const targetLook = new THREE.Vector3(...targetArt.camera.target);
+
+  if (state.transitioning) {
+    state.transitionT += delta / state.transitionDuration;
+    const k = Math.min(state.transitionT, 1);
+    const e = easeInOutCubic(k);
+
+    // Smoothly interpolate camera to new position
+    camLerp.pos.lerpVectors(camLerp.pos, targetPos, e * 0.12);
+    camLerp.currentTarget.lerpVectors(camLerp.currentTarget, targetLook, e * 0.12);
+
+    if (k >= 1) {
+      state.transitioning = false;
+    }
+  } else {
+    // Gentle lerp toward target when idle
+    camLerp.pos.lerp(targetPos, 0.04);
+    camLerp.currentTarget.lerp(targetLook, 0.04);
+  }
+
+  // Apply mouse parallax (very subtle)
+  const parallaxStrength = state.transitioning ? 0.0 : 0.15;
+  camera.position.x = camLerp.pos.x + state.mouseX * parallaxStrength;
+  camera.position.y = camLerp.pos.y + state.mouseY * parallaxStrength * 0.5;
+  camera.position.z = camLerp.pos.z;
+  camera.lookAt(camLerp.currentTarget);
+
+  // Slow breathing motion on idle
+  if (!state.transitioning) {
+    camera.position.y += Math.sin(t * 0.4) * 0.015;
+  }
+
+  // Render
+  composer.render();
+  requestAnimationFrame(animate);
+}
+
+// ============================================================
+// LOADING → START
+// ============================================================
+setTimeout(() => {
+  document.getElementById('loader').classList.add('gone');
+  setTimeout(() => {
+    animate();
+  }, 600);
+}, 1800);
+</script>
+
+</body>
+</html>
