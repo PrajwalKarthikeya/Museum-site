@@ -12,4 +12,4 @@ try {
 } catch (e) {
   console.log('PARSE ERROR:', e.message);
   if (e.loc) console.log('At line', e.loc.line, 'col', e.loc.column);
-}
+}Checking dependencies
